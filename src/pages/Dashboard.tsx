@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { useAppointments, Appointment } from '../hooks/useAppointments';
 import { AppointmentTable } from '../components/Dashboard/AppointmentTable';
-import { ViewAppointmentModal, EditAppointmentModal, DeleteConfirmationModal, RescheduleModal, AddAppointmentModal } from '../components/Dashboard/AppointmentModals';
-import { Users, CalendarCheck, CalendarX, CheckCircle2, Plus } from 'lucide-react';
+import { ViewAppointmentModal, EditAppointmentModal, DeleteConfirmationModal, RescheduleModal } from '../components/Dashboard/AppointmentModals';
+import { Users, CalendarCheck, CalendarX, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export function Dashboard() {
-    const { appointments, updateAppointment, deleteAppointment, addAppointment } = useAppointments();
+    const { appointments, updateAppointment, deleteAppointment } = useAppointments();
     const { role } = useAuth();
 
     // Modal States
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
-    const [modalType, setModalType] = useState<'view' | 'edit' | 'delete' | 'reschedule' | 'add' | null>(null);
+    const [modalType, setModalType] = useState<'view' | 'edit' | 'delete' | 'reschedule' | null>(null);
 
     const stats = {
         total: appointments.length,
@@ -27,16 +27,13 @@ export function Dashboard() {
 
     return (
         <div className="animate-up">
-            <header className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <header className="page-header">
                 <div>
                     <h1 className="page-title">Appointment Dashboard</h1>
-                    <p className="page-subtitle">Real-time monitoring and management of dental appointments.</p>
+                    <p className="page-subtitle">
+                        Real-time monitoring and management of dental appointments.
+                    </p>
                 </div>
-                {role === 'Admin' && (
-                    <button className="btn btn-primary" onClick={() => setModalType('add')}>
-                        <Plus size={18} /> Book Appointment
-                    </button>
-                )}
             </header>
 
             <div className="stat-grid">
@@ -47,6 +44,7 @@ export function Dashboard() {
                     trend="+4%"
                     type="total"
                 />
+
                 <StatCard
                     label="Booked"
                     value={stats.booked.toString()}
@@ -54,6 +52,7 @@ export function Dashboard() {
                     trend="+2%"
                     type="booked"
                 />
+
                 <StatCard
                     label="Cancelled"
                     value={stats.cancelled.toString()}
@@ -61,6 +60,7 @@ export function Dashboard() {
                     trend="-1%"
                     type="cancelled"
                 />
+
                 <StatCard
                     label="Completed"
                     value={stats.completed.toString()}
@@ -72,15 +72,31 @@ export function Dashboard() {
 
             <div style={{ marginTop: '32px' }}>
                 <AppointmentTable
-                    onView={(apt) => { setSelectedAppointment(apt); setModalType('view'); }}
-                    onEdit={(apt) => { setSelectedAppointment(apt); setModalType('edit'); }}
-                    onReschedule={(apt) => { setSelectedAppointment(apt); setModalType('reschedule'); }}
+                    onView={(apt) => {
+                        setSelectedAppointment(apt);
+                        setModalType('view');
+                    }}
+
+                    onEdit={(apt) => {
+                        setSelectedAppointment(apt);
+                        setModalType('edit');
+                    }}
+
+                    onReschedule={(apt) => {
+                        setSelectedAppointment(apt);
+                        setModalType('reschedule');
+                    }}
+
                     onCancel={async (apt) => {
                         if (confirm(`Cancel appointment for ${apt.patient_name}?`)) {
                             await updateAppointment(apt.id, { status: 'cancelled' });
                         }
                     }}
-                    onDelete={(apt) => { setSelectedAppointment(apt); setModalType('delete'); }}
+
+                    onDelete={(apt) => {
+                        setSelectedAppointment(apt);
+                        setModalType('delete');
+                    }}
                 />
             </div>
 
@@ -90,20 +106,14 @@ export function Dashboard() {
                 appointment={selectedAppointment}
             />
 
-            <AddAppointmentModal
-                isOpen={modalType === 'add'}
-                onClose={closeModal}
-                onSave={async (data) => {
-                    await addAppointment(data);
-                }}
-            />
-
             <EditAppointmentModal
                 isOpen={modalType === 'edit'}
                 onClose={closeModal}
                 appointment={selectedAppointment}
                 onSave={async (updates) => {
-                    if (selectedAppointment) await updateAppointment(selectedAppointment.id, updates);
+                    if (selectedAppointment) {
+                        await updateAppointment(selectedAppointment.id, updates);
+                    }
                 }}
             />
 
@@ -112,7 +122,12 @@ export function Dashboard() {
                 onClose={closeModal}
                 appointment={selectedAppointment}
                 onSave={async (newTime) => {
-                    if (selectedAppointment) await updateAppointment(selectedAppointment.id, { appointment_time: newTime, status: 'rescheduled' });
+                    if (selectedAppointment) {
+                        await updateAppointment(selectedAppointment.id, {
+                            appointment_time: newTime,
+                            status: 'rescheduled'
+                        });
+                    }
                 }}
             />
 
@@ -121,14 +136,29 @@ export function Dashboard() {
                 onClose={closeModal}
                 patientName={selectedAppointment?.patient_name || ''}
                 onConfirm={async () => {
-                    if (selectedAppointment) await deleteAppointment(selectedAppointment.id);
+                    if (selectedAppointment) {
+                        await deleteAppointment(selectedAppointment.id);
+                    }
                 }}
             />
         </div>
     );
 }
 
-function StatCard({ label, value, icon, trend, type }: { label: string, value: string, icon: React.ReactNode, trend: string, type: 'total' | 'booked' | 'cancelled' | 'completed' }) {
+function StatCard({
+    label,
+    value,
+    icon,
+    trend,
+    type
+}: {
+    label: string,
+    value: string,
+    icon: React.ReactNode,
+    trend: string,
+    type: 'total' | 'booked' | 'cancelled' | 'completed'
+}) {
+
     const config = {
         total: { color: 'var(--primary)', bg: 'var(--primary-light)' },
         booked: { color: 'var(--status-booked)', bg: 'var(--status-booked-bg)' },
@@ -145,10 +175,12 @@ function StatCard({ label, value, icon, trend, type }: { label: string, value: s
                 <div className="stat-icon" style={{ backgroundColor: bg, color: color }}>
                     {icon}
                 </div>
+
                 <div className={`stat-trend ${isPositive ? 'bg-success-light text-success' : 'bg-danger-light text-danger'}`}>
                     {trend}
                 </div>
             </div>
+
             <div>
                 <div className="stat-value">{value}</div>
                 <div className="stat-label">{label}</div>
