@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Search, Eye, Edit3, Calendar, XCircle, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Appointment, useAppointments } from '../../hooks/useAppointments';
+import { Appointment } from '../../hooks/useAppointments';
 import { Badge } from '../ui/Badge';
 import { format } from 'date-fns';
 import { useAuth } from '../../contexts/AuthContext';
@@ -13,6 +13,10 @@ function safeFormat(dateValue: any, formatStr: string) {
 }
 
 interface AppointmentTableProps {
+    appointments: Appointment[];
+    loading: boolean;
+    error: string | null;
+
     onView: (apt: Appointment) => void;
     onEdit: (apt: Appointment) => void;
     onReschedule: (apt: Appointment) => void;
@@ -20,9 +24,17 @@ interface AppointmentTableProps {
     onDelete: (apt: Appointment) => void;
 }
 
-export function AppointmentTable({ onView, onEdit, onReschedule, onCancel, onDelete }: AppointmentTableProps) {
+export function AppointmentTable({
+    appointments,
+    loading,
+    error,
+    onView,
+    onEdit,
+    onReschedule,
+    onCancel,
+    onDelete
+}: AppointmentTableProps) {
 
-    const { appointments, loading, error } = useAppointments();
     const { role } = useAuth();
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -45,10 +57,19 @@ export function AppointmentTable({ onView, onEdit, onReschedule, onCancel, onDel
 
     const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
-    const paginatedAppointments = filteredAppointments.slice(startIndex, startIndex + itemsPerPage);
 
-    if (loading) return <div style={{ padding: '48px', textAlign: 'center', color: 'var(--muted)' }}>Loading appointments...</div>;
-    if (error) return <div style={{ padding: '48px', textAlign: 'center', color: '#ef4444' }}>Error: {error}</div>;
+    const paginatedAppointments = filteredAppointments.slice(
+        startIndex,
+        startIndex + itemsPerPage
+    );
+
+    if (loading) {
+        return <div style={{ padding: '48px', textAlign: 'center' }}>Loading appointments...</div>;
+    }
+
+    if (error) {
+        return <div style={{ padding: '48px', textAlign: 'center', color: 'red' }}>{error}</div>;
+    }
 
     return (
         <div className="table-container">
@@ -56,10 +77,10 @@ export function AppointmentTable({ onView, onEdit, onReschedule, onCancel, onDel
             <div className="table-header-row">
 
                 <div className="search-input-wrapper" style={{ maxWidth: '360px' }}>
-                    <Search size={18} style={{ position: 'absolute', left: '12px', color: 'var(--muted)' }} />
+                    <Search size={18} style={{ position: 'absolute', left: '12px' }} />
                     <input
                         type="text"
-                        placeholder="Search patient, email, phone..."
+                        placeholder="Search patient..."
                         className="search-input"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -69,13 +90,6 @@ export function AppointmentTable({ onView, onEdit, onReschedule, onCancel, onDel
                 <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    style={{
-                        padding: '10px 16px',
-                        borderRadius: '8px',
-                        border: '1px solid var(--border)',
-                        backgroundColor: 'var(--input)',
-                        fontSize: '14px'
-                    }}
                 >
                     <option value="all">All Status</option>
                     <option value="booked">Booked</option>
@@ -86,99 +100,72 @@ export function AppointmentTable({ onView, onEdit, onReschedule, onCancel, onDel
 
             </div>
 
-            <div style={{ overflowX: 'auto' }}>
+            <table className="data-table">
 
-                <table className="data-table">
+                <thead>
+                    <tr>
+                        <th>Patient</th>
+                        <th>Reason</th>
+                        <th>Appointment Time</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
 
-                    <thead>
-                        <tr>
-                            <th>Patient</th>
-                            <th>Reason</th>
-                            <th>Appointment Time</th>
-                            <th>Status</th>
-                            <th>Reminder</th>
-                            <th style={{ textAlign: 'right' }}>Actions</th>
+                <tbody>
+
+                    {paginatedAppointments.map((apt) => (
+
+                        <tr key={apt.id}>
+
+                            <td>
+                                <strong>{apt.patient_name}</strong>
+                                <div>{apt.email}</div>
+                            </td>
+
+                            <td>{apt.reason_for_visit}</td>
+
+                            <td>
+                                {safeFormat(apt.appointment_time, "MMM dd yyyy")} <br />
+                                {safeFormat(apt.appointment_time, "hh:mm a")}
+                            </td>
+
+                            <td>
+                                <Badge status={apt.status} />
+                            </td>
+
+                            <td>
+
+                                <ActionButton icon={<Eye size={16} />} onClick={() => onView(apt)} />
+
+                                {role === "Admin" && (
+                                    <>
+                                        <ActionButton icon={<Edit3 size={16} />} onClick={() => onEdit(apt)} />
+                                        <ActionButton icon={<Calendar size={16} />} onClick={() => onReschedule(apt)} />
+                                        <ActionButton icon={<XCircle size={16} />} onClick={() => onCancel(apt)} />
+                                        <ActionButton icon={<Trash2 size={16} />} onClick={() => onDelete(apt)} />
+                                    </>
+                                )}
+
+                            </td>
+
                         </tr>
-                    </thead>
 
-                    <tbody>
+                    ))}
 
-                        {paginatedAppointments.map((apt) => (
+                </tbody>
 
-                            <tr key={apt.id}>
-
-                                <td>
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <span style={{ fontWeight: '700' }}>{apt.patient_name || "N/A"}</span>
-                                        <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{apt.email || "N/A"}</span>
-                                    </div>
-                                </td>
-
-                                <td>
-                                    <span style={{ color: 'var(--muted)', fontSize: '13px' }}>
-                                        {apt.reason_for_visit || "N/A"}
-                                    </span>
-                                </td>
-
-                                <td>
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <span style={{ fontWeight: '600' }}>
-                                            {safeFormat(apt.appointment_time, 'MMM dd, yyyy')}
-                                        </span>
-                                        <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                                            {safeFormat(apt.appointment_time, 'hh:mm a')}
-                                        </span>
-                                    </div>
-                                </td>
-
-                                <td>
-                                    <Badge status={apt.status} />
-                                </td>
-
-                                <td>
-                                    {apt.reminder_status
-                                        ? apt.reminder_status.charAt(0).toUpperCase() + apt.reminder_status.slice(1)
-                                        : "Pending"}
-                                </td>
-
-                                <td>
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-
-                                        <ActionButton icon={<Eye size={16} />} onClick={() => onView(apt)} tooltip="View" />
-
-                                        {role === 'Admin' && (
-                                            <>
-                                                <ActionButton icon={<Edit3 size={16} />} onClick={() => onEdit(apt)} tooltip="Edit" />
-                                                <ActionButton icon={<Calendar size={16} />} onClick={() => onReschedule(apt)} tooltip="Reschedule" />
-                                                <ActionButton icon={<XCircle size={16} />} onClick={() => onCancel(apt)} tooltip="Cancel" />
-                                                <ActionButton icon={<Trash2 size={16} />} onClick={() => onDelete(apt)} tooltip="Delete" />
-                                            </>
-                                        )}
-
-                                    </div>
-                                </td>
-
-                            </tr>
-
-                        ))}
-
-                    </tbody>
-
-                </table>
-
-            </div>
+            </table>
 
         </div>
     );
 }
 
-function ActionButton({ icon, onClick, tooltip }: any) {
+function ActionButton({ icon, onClick }: any) {
     return (
         <button
             onClick={onClick}
-            title={tooltip}
-            className="btn"
-            style={{ padding: '8px', backgroundColor: 'transparent' }}
+            style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer' }}
         >
             {icon}
         </button>
