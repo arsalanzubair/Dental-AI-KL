@@ -8,8 +8,8 @@ export function Settings() {
     const { role } = useAuth();
 
     const [activeTab, setActiveTab] = useState<'reminders' | 'automation' | 'operations'>('reminders');
-    const [isSaving, setIsSaving] = useState(false);
     const [localSettings, setLocalSettings] = useState<ClinicSettings | null>(null);
+    const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
 
     useEffect(() => {
         if (!settings) return;
@@ -18,8 +18,7 @@ export function Settings() {
 
         if (stored) {
             try {
-                const parsed = JSON.parse(stored);
-                setLocalSettings(parsed);
+                setLocalSettings(JSON.parse(stored));
             } catch {
                 setLocalSettings(settings);
             }
@@ -31,39 +30,38 @@ export function Settings() {
     if (loading || !localSettings)
         return <div style={{ padding: '48px', textAlign: 'center', color: 'var(--muted)' }}>Loading clinic settings...</div>;
 
-    const handleSave = async (updates: Partial<ClinicSettings>) => {
+    const handleSave = (updates: Partial<ClinicSettings>) => {
+
         if (role !== 'Admin') {
             alert('Access Denied: Administrative privileges required.');
             return;
         }
 
-        setIsSaving(true);
+        setSaveState('saving');
 
-        try {
-            const newSettings = {
-                ...localSettings,
-                ...updates
-            };
+        const newSettings = {
+            ...localSettings,
+            ...updates
+        };
 
-            localStorage.setItem("clinic_settings", JSON.stringify(newSettings));
+        localStorage.setItem("clinic_settings", JSON.stringify(newSettings));
 
-            setLocalSettings(newSettings);
+        setLocalSettings(newSettings);
 
-            console.log("Settings saved:", newSettings);
-        } catch (error) {
-            console.error("Error saving settings:", error);
-        }
+        setSaveState('saved');
 
-        setIsSaving(false);
+        setTimeout(() => setSaveState('idle'), 2000);
     };
 
     return (
         <div className="animate-up">
+
             <header className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h1 className="page-title">Clinic Control Settings</h1>
                     <p className="page-subtitle">Configure AI behavior, automated messaging, and clinic operations.</p>
                 </div>
+
                 {role !== 'Admin' && (
                     <div style={{
                         display: 'flex',
@@ -82,6 +80,7 @@ export function Settings() {
             </header>
 
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+
                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', backgroundColor: 'var(--background)' }}>
                     <TabButton active={activeTab === 'reminders'} onClick={() => setActiveTab('reminders')} icon={<Bell size={18} />} label="Reminders" />
                     <TabButton active={activeTab === 'automation'} onClick={() => setActiveTab('automation')} icon={<Zap size={18} />} label="Automation" />
@@ -90,15 +89,15 @@ export function Settings() {
 
                 <div style={{ padding: '32px' }}>
                     {activeTab === 'reminders' &&
-                        <RemindersTab settings={localSettings} onSave={handleSave} isSaving={isSaving} isAdmin={role === 'Admin'} />
+                        <RemindersTab settings={localSettings} onSave={handleSave} saveState={saveState} isAdmin={role === 'Admin'} />
                     }
 
                     {activeTab === 'automation' &&
-                        <AutomationTab settings={localSettings} onSave={handleSave} isSaving={isSaving} isAdmin={role === 'Admin'} />
+                        <AutomationTab settings={localSettings} onSave={handleSave} saveState={saveState} isAdmin={role === 'Admin'} />
                     }
 
                     {activeTab === 'operations' &&
-                        <OperationsTab settings={localSettings} onSave={handleSave} isSaving={isSaving} isAdmin={role === 'Admin'} />
+                        <OperationsTab settings={localSettings} onSave={handleSave} saveState={saveState} isAdmin={role === 'Admin'} />
                     }
                 </div>
             </div>
@@ -122,8 +121,7 @@ function TabButton({ active, onClick, icon, label }: { active: boolean, onClick:
                 color: active ? 'var(--primary)' : 'var(--muted)',
                 borderBottom: active ? '2px solid var(--primary)' : '2px solid transparent',
                 cursor: 'pointer',
-                backgroundColor: active ? 'var(--card)' : 'transparent',
-                transition: 'all 0.2s'
+                backgroundColor: active ? 'var(--card)' : 'transparent'
             }}
         >
             {icon}
@@ -132,63 +130,57 @@ function TabButton({ active, onClick, icon, label }: { active: boolean, onClick:
     );
 }
 
-function RemindersTab({ settings, onSave, isSaving, isAdmin }: { settings: ClinicSettings, onSave: (u: Partial<ClinicSettings>) => void, isSaving: boolean, isAdmin: boolean }) {
+function SaveButton({ onClick, saveState }: { onClick: () => void, saveState: string }) {
+    return (
+        <button className="btn btn-primary" onClick={onClick} style={{ width: 'fit-content', padding: '12px 32px' }}>
+            <Save size={18} />
+            {saveState === 'saving' && 'Saving...'}
+            {saveState === 'saved' && 'Saved ✓'}
+            {saveState === 'idle' && 'Save Configuration'}
+        </button>
+    );
+}
+
+function RemindersTab({ settings, onSave, saveState, isAdmin }: any) {
+
     const [localSettings, setLocalSettings] = useState(settings);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
 
-            <section>
-                <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '16px' }}>Appointment Reminders</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: '800' }}>Appointment Reminders</h3>
 
-                <div className="input-group">
-                    <label className="input-label">Reminder Timing</label>
+            <select
+                className="search-input"
+                value={localSettings.reminder_timing}
+                disabled={!isAdmin}
+                onChange={(e) =>
+                    setLocalSettings({ ...localSettings, reminder_timing: e.target.value })
+                }
+            >
+                <option value="12h">12 hours before</option>
+                <option value="24h">24 hours before</option>
+                <option value="48h">48 hours before</option>
+                <option value="1w">1 week before</option>
+            </select>
 
-                    <select
-                        className="search-input"
-                        value={localSettings.reminder_timing}
-                        disabled={!isAdmin}
-                        onChange={(e) =>
-                            setLocalSettings({ ...localSettings, reminder_timing: e.target.value })
-                        }
-                    >
-                        <option value="12h">12 hours before</option>
-                        <option value="24h">24 hours before</option>
-                        <option value="48h">48 hours before</option>
-                        <option value="1w">1 week before</option>
-                    </select>
-                </div>
-            </section>
+            <textarea
+                className="search-input"
+                style={{ height: '120px' }}
+                value={localSettings.reminder_template}
+                disabled={!isAdmin}
+                onChange={(e) =>
+                    setLocalSettings({ ...localSettings, reminder_template: e.target.value })
+                }
+            />
 
-            <section>
-                <label className="input-label">Reminder Message Template</label>
+            {isAdmin && <SaveButton onClick={() => onSave(localSettings)} saveState={saveState} />}
 
-                <textarea
-                    className="search-input"
-                    style={{ height: '120px' }}
-                    value={localSettings.reminder_template}
-                    disabled={!isAdmin}
-                    onChange={(e) =>
-                        setLocalSettings({ ...localSettings, reminder_template: e.target.value })
-                    }
-                />
-            </section>
-
-            {isAdmin && (
-                <button
-                    disabled={isSaving}
-                    onClick={() => onSave(localSettings)}
-                    className="btn btn-primary"
-                >
-                    <Save size={18} />
-                    {isSaving ? 'Saving Changes...' : 'Save Configuration'}
-                </button>
-            )}
         </div>
     );
 }
 
-function AutomationTab({ settings, onSave, isSaving, isAdmin }: { settings: ClinicSettings, onSave: (u: Partial<ClinicSettings>) => void, isSaving: boolean, isAdmin: boolean }) {
+function AutomationTab({ settings, onSave, saveState, isAdmin }: any) {
 
     const [localSettings, setLocalSettings] = useState(settings);
 
@@ -207,57 +199,107 @@ function AutomationTab({ settings, onSave, isSaving, isAdmin }: { settings: Clin
                 }
             />
 
-            {isAdmin && (
-                <button
-                    disabled={isSaving}
-                    onClick={() => onSave(localSettings)}
-                    className="btn btn-primary"
-                >
-                    <Save size={18} />
-                    {isSaving ? 'Saving Changes...' : 'Save Configuration'}
-                </button>
-            )}
+            {isAdmin && <SaveButton onClick={() => onSave(localSettings)} saveState={saveState} />}
+
         </div>
     );
 }
 
-function OperationsTab({ settings, onSave, isSaving, isAdmin }: { settings: ClinicSettings, onSave: (u: Partial<ClinicSettings>) => void, isSaving: boolean, isAdmin: boolean }) {
+function OperationsTab({ settings, onSave, saveState, isAdmin }: any) {
 
     const [localSettings, setLocalSettings] = useState(settings);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
 
-            <section>
-                <h3 style={{ fontSize: '18px', fontWeight: '800' }}>After-Hours Behavior</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: '800' }}>Business Hours</h3>
 
-                <select
-                    className="search-input"
-                    value={localSettings.after_hours_behavior}
-                    disabled={!isAdmin}
-                    onChange={(e) =>
-                        setLocalSettings({
-                            ...localSettings,
-                            after_hours_behavior: e.target.value as any
-                        })
-                    }
-                >
-                    <option value="voicemail">Send to Voicemail</option>
-                    <option value="callback">Offer Callback</option>
-                    <option value="message">Automated Message</option>
-                </select>
-            </section>
+            {Object.entries(localSettings.business_hours).map(([day, hours]: any) => (
 
-            {isAdmin && (
-                <button
-                    disabled={isSaving}
-                    onClick={() => onSave(localSettings)}
-                    className="btn btn-primary"
-                >
-                    <Save size={18} />
-                    {isSaving ? 'Saving Changes...' : 'Save Configuration'}
-                </button>
-            )}
+                <div key={day} style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+
+                    <div style={{ width: '100px', fontWeight: '700', textTransform: 'capitalize' }}>
+                        {day}
+                    </div>
+
+                    <input
+                        type="checkbox"
+                        checked={hours.enabled}
+                        disabled={!isAdmin}
+                        onChange={(e) => {
+
+                            const newHours = {
+                                ...localSettings.business_hours,
+                                [day]: { ...hours, enabled: e.target.checked }
+                            };
+
+                            setLocalSettings({
+                                ...localSettings,
+                                business_hours: newHours
+                            });
+                        }}
+                    />
+
+                    <input
+                        type="time"
+                        value={hours.open}
+                        disabled={!hours.enabled || !isAdmin}
+                        onChange={(e) => {
+
+                            const newHours = {
+                                ...localSettings.business_hours,
+                                [day]: { ...hours, open: e.target.value }
+                            };
+
+                            setLocalSettings({
+                                ...localSettings,
+                                business_hours: newHours
+                            });
+                        }}
+                    />
+
+                    <input
+                        type="time"
+                        value={hours.close}
+                        disabled={!hours.enabled || !isAdmin}
+                        onChange={(e) => {
+
+                            const newHours = {
+                                ...localSettings.business_hours,
+                                [day]: { ...hours, close: e.target.value }
+                            };
+
+                            setLocalSettings({
+                                ...localSettings,
+                                business_hours: newHours
+                            });
+                        }}
+                    />
+
+                </div>
+
+            ))}
+
+            <h3 style={{ fontSize: '18px', fontWeight: '800' }}>After-Hours Behavior</h3>
+
+            <select
+                className="search-input"
+                value={localSettings.after_hours_behavior}
+                disabled={!isAdmin}
+                onChange={(e) =>
+                    setLocalSettings({
+                        ...localSettings,
+                        after_hours_behavior: e.target.value
+                    })
+                }
+            >
+                <option value="voicemail">Send to Voicemail</option>
+                <option value="callback">Offer Callback Request</option>
+                <option value="message">Provide Automated Message</option>
+            </select>
+
+            {isAdmin && <SaveButton onClick={() => onSave(localSettings)} saveState={saveState} />}
+
         </div>
     );
 }
